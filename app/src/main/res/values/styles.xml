@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppOutlinedInput">
+        <!-- Outline box -->
+        <item name="boxBackgroundMode">outline</item>
+
+        <!-- Stroke -->
+        <item name="boxStrokeColor">#E9E9E9</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">1.5dp</item>
+
+        <!-- Corner radius -->
+        <item name="boxCornerRadiusTopStart">8dp</item>
+        <item name="boxCornerRadiusTopEnd">8dp</item>
+        <item name="boxCornerRadiusBottomStart">8dp</item>
+        <item name="boxCornerRadiusBottomEnd">8dp</item>
+
+        <!-- Hint color -->
+        <item name="hintTextColor">#9E9E9E</item>
+
+        <!-- Error color (optional) -->
+        <item name="errorTextColor">#D32F2F</item>
+    </style>
+
+</resources>
