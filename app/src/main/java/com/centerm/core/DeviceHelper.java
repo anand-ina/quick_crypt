@@ -3,6 +3,7 @@ package com.centerm.core;
 import android.content.Context;
 import android.util.Log;
 
+import com.centerm.quickcrypt.rki.RkiManager;
 import com.pos.sdk.DeviceManager;
 import com.pos.sdk.DevicesFactory;
 import com.pos.sdk.callback.ResultCallback;
@@ -19,38 +20,24 @@ public class DeviceHelper {
         return me;
     }
 
-    public void init(Context context, DeviceInitCallback deviceInitCallback) {
+    public void init(Context context) {
         DevicesFactory.create(context, new ResultCallback<DeviceManager>() {
             @Override
             public void onFinish(DeviceManager devicesManager) {
                 Log.d(TAG, "onFinish: ");
 
                 deviceManager = devicesManager;
-
-                if (deviceInitCallback != null) {
-                    deviceInitCallback.onSuccess(deviceManager);
-                }
+                new RkiManager(deviceManager.getRKIBnrDevice(), context);
             }
 
             @Override
             public void onError(int errorCode, String error) {
 
                 Log.d(TAG, "onError: " + errorCode + "," + error);
-
-                if (deviceInitCallback != null) {
-                    deviceInitCallback.onFailure(errorCode, error);
-                }
-
             }
         });
     }
 
-
-    public interface DeviceInitCallback {
-        void onSuccess(DeviceManager deviceManager);
-
-        void onFailure(int code, String message);
-    }
 }
 
 

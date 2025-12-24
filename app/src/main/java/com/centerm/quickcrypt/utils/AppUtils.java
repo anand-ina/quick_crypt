@@ -1,7 +1,7 @@
 package com.centerm.quickcrypt.utils;
 
 import android.content.Context;
-
+import android.util.Log;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,27 +31,9 @@ public class AppUtils {
             return baos.toString(StandardCharsets.UTF_8.name());
 
         } catch (IOException e) {
-            Print.p(TAG, e.toString());
+            Log.i(TAG, e.toString());
             return  "";
         }
 
     }
-
-    public static Map<String, String> parseFormEncoded(String response) {
-        Map<String, String> map = new HashMap<>();
-        for (String pair : response.split("&")) {
-            int idx = pair.indexOf('=');
-            if (idx > 0) {
-                String key = pair.substring(0, idx);
-                String value = pair.substring(idx + 1);
-                try {
-                    value = URLDecoder.decode(value, "UTF-8");
-                } catch (Exception ignored) {}
-                map.put(key, value);
-            }
-        }
-        return map;
-    }
-
-
 }
