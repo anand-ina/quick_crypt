@@ -6,12 +6,11 @@ import java.nio.charset.StandardCharsets;
 import okhttp3.Interceptor;
 import okhttp3.MediaType;
 import okhttp3.Request;
-import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import okio.Buffer;
 
-public class RkiLoggingInterceptor implements Interceptor {
+public class LoggingInterceptor implements Interceptor {
 
     @Override
     public Response intercept(Chain chain) throws IOException {

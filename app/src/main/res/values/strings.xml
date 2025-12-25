@@ -15,4 +15,11 @@
     <string name="text_version">Version</string>
     <string name="text_terminal_sn">Terminal SN</string>
     <string name="text_centerm">Centerm</string>
+    <string name="text_server_url_is_required">Server URL is required</string>
+    <string name="text_invalid_server_url">Invalid Server URL</string>
+    <string name="text_api_key_is_required">API Key is required</string>
+    <string name="text_api_token_is_required">API Token is required</string>
+    <string name="text_key_index_is_required">Key Index is required</string>
+    <string name="text_key_index_must_be_a_number">Key Index must be a number</string>
+    <string name="text_settings_saved_successfully">Settings saved successfully</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.centerm.core;
 
+import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
 
@@ -7,6 +8,7 @@ import com.centerm.quickcrypt.rki.RkiManager;
 import com.pos.sdk.DeviceManager;
 import com.pos.sdk.DevicesFactory;
 import com.pos.sdk.callback.ResultCallback;
+import com.pos.sdk.sys.SystemDevice;
 
 public class DeviceHelper {
 
@@ -20,14 +22,14 @@ public class DeviceHelper {
         return me;
     }
 
-    public void init(Context context) {
-        DevicesFactory.create(context, new ResultCallback<DeviceManager>() {
+    public void init(Activity activity) {
+        DevicesFactory.create(activity, new ResultCallback<DeviceManager>() {
             @Override
             public void onFinish(DeviceManager devicesManager) {
                 Log.d(TAG, "onFinish: ");
 
                 deviceManager = devicesManager;
-                new RkiManager(deviceManager.getRKIBnrDevice(), context);
+                new RkiManager(activity, deviceManager.getRKIBnrDevice());
             }
 
             @Override
@@ -36,6 +38,11 @@ public class DeviceHelper {
                 Log.d(TAG, "onError: " + errorCode + "," + error);
             }
         });
+    }
+
+    public String getSerielNumber() {
+        String deviceManager = DeviceHelper.me().deviceManager.getSystemDevice().getSystemInfo(SystemDevice.SystemInfoType.SN);
+        return "D1K0600001982";
     }
 
 }

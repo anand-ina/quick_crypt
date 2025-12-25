@@ -21,6 +21,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.QuickCrypt">
         <activity
+            android:name=".activities.RkiHostActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.SettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.QuickCrypt" />

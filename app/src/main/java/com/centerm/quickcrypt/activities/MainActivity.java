@@ -9,8 +9,11 @@ import android.widget.TextView;
 
 import com.centerm.core.DeviceHelper;
 import com.centerm.quickcrypt.R;
+import com.centerm.quickcrypt.common_ui.CustomSnackBar;
 import com.centerm.quickcrypt.rki.RkiManager;
+import com.centerm.quickcrypt.utils.RkiPrefs;
 import com.pos.sdk.DeviceManager;
+import com.pos.sdk.rki.RkiBnrDevice;
 import com.pos.sdk.sys.SystemDevice;
 
 public class MainActivity extends BaseActivity {
@@ -19,14 +22,18 @@ public class MainActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setupEdgeToEdge(R.layout.activity_main, R.id.main);
-        DeviceHelper.me().init(getApplicationContext());
+        RkiPrefs.init(this);
+        DeviceHelper.me().init(MainActivity.this);
 
         findViewById(R.id.settings_imageview).setOnClickListener(v -> {
-            startActivity(new Intent(this, RkiHostActivity.class));
+            startActivity(new Intent(this, SettingsActivity.class));
         });
 
         findViewById(R.id.button_load_key).setOnClickListener(v -> {
-            RkiManager.startRkiProvisioning();
+            RkiBnrDevice rkiDevice = DeviceHelper.me().deviceManager.getRKIBnrDevice();
+            RkiManager rkiManager = new RkiManager(this, rkiDevice);
+
+            rkiManager.checkValidations();
         });
 
         findViewById(R.id.btn_about).setOnClickListener(v -> {

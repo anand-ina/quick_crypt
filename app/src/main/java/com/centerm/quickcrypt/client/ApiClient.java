@@ -4,8 +4,7 @@ import android.util.Log;
 
 import com.centerm.core.DeviceHelper;
 import com.centerm.quickcrypt.interfaces.RkiCallback;
-import com.centerm.quickcrypt.utils.AppConstants;
-import com.pos.sdk.sys.SystemDevice;
+import com.centerm.quickcrypt.utils.RkiPrefs;
 
 import java.io.IOException;
 
@@ -17,36 +16,35 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-public class RkiApiClient {
+public class ApiClient {
+    public static final String API_VERSION = "1";
+    public static final String ACTION_0 = "0";
+    public static final String ACTION_2 = "2";
+    public static final String TAG = "ApiClient";
 
     private final OkHttpClient client = new OkHttpClient.Builder()
-            .addInterceptor(new RkiLoggingInterceptor())
+            .addInterceptor(new LoggingInterceptor())
             .build();
 
     public void requestTerminalCert(String customerCert, String terminalCsr, RkiCallback callback) {
 
-        String serialNumber = DeviceHelper.me().deviceManager.getSystemDevice().getSystemInfo(SystemDevice.SystemInfoType.SN);
-
         RequestBody body = new FormBody.Builder()
-                .add("Action", "2")
-                .add("APIVersion", AppConstants.API_VERSION)
-                .add("APIKey", "rCh7aWvxLf4iCWeX")
-                .add("APIToken", "OArvtY5Af6AxOKnEThaNCMY72FZiPX9j")
-                .add("SerialNumber", serialNumber)
+                .add("Action", ACTION_2)
+                .add("APIVersion", API_VERSION)
+                .add("APIKey", RkiPrefs.getApiKey())
+                .add("APIToken", RkiPrefs.getApiToken())
+                .add("SerialNumber", DeviceHelper.me().getSerielNumber())
                 .add("CustomerCert", customerCert)
                 .add("TerminalCsr", terminalCsr)
                 .build();
 
-        Request request = new Request.Builder()
-                .url(AppConstants.BASE_URL)
-                .post(body)
-                .build();
+        Request request = new Request.Builder().url(RkiPrefs.getServerUrl()).post(body).build();
 
         client.newCall(request).enqueue(new Callback() {
 
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.i("", "API failed");
+                Log.i(TAG, "API failed");
                 e.printStackTrace();
                 callback.onError(e.getMessage());
             }
@@ -59,7 +57,6 @@ public class RkiApiClient {
                 }
 
                 String responseBody = response.body().string();
-                Log.i("", "Response: " + responseBody);
                 callback.onSuccess(responseBody);
             }
         });
@@ -67,23 +64,18 @@ public class RkiApiClient {
 
     public void requestRkiDataFromServer(String customerCert, String terminalCsr, String tempCert, RkiCallback callback) {
 
-        String serialNumber = DeviceHelper.me().deviceManager.getSystemDevice().getSystemInfo(SystemDevice.SystemInfoType.SN);
-
         RequestBody body = new FormBody.Builder()
-                .add("Action", "0")
-                .add("APIKey", "rCh7aWvxLf4iCWeX")
-                .add("APIToken", "OArvtY5Af6AxOKnEThaNCMY72FZiPX9j")
-                .add("APIVersion", AppConstants.API_VERSION)
-                .add("SerialNumber", serialNumber)
+                .add("Action", ACTION_0)
+                .add("APIKey", RkiPrefs.getApiKey())
+                .add("APIToken", RkiPrefs.getApiToken())
+                .add("APIVersion", API_VERSION)
+                .add("SerialNumber", DeviceHelper.me().getSerielNumber())
                 .add("CustomerCert", customerCert)
                 .add("TerminalCert", terminalCsr)
                 .add("TempCert", tempCert)
                 .build();
 
-        Request request = new Request.Builder()
-                .url(AppConstants.BASE_URL)
-                .post(body)
-                .build();
+        Request request = new Request.Builder().url(RkiPrefs.getServerUrl()).post(body).build();
 
         client.newCall(request).enqueue(new Callback() {
 
@@ -102,7 +94,7 @@ public class RkiApiClient {
                 }
 
                 String responseBody = response.body().string();
-                Log.i("", "Response: " + responseBody);
+                Log.e("", "Response: " + responseBody);
                 callback.onSuccess(responseBody);
             }
         });

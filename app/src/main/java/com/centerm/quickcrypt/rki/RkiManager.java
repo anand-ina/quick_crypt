@@ -1,200 +1,182 @@
 package com.centerm.quickcrypt.rki;
 
-import static com.centerm.quickcrypt.utils.AppConstants.CUSTOMER_CERT;
 
-import android.content.Context;
-import android.os.Bundle;
+import android.app.Activity;
 import android.util.Log;
 
-import com.centerm.core.DeviceHelper;
-import com.centerm.quickcrypt.client.RkiApiClient;
+import com.centerm.quickcrypt.common_ui.CustomLoader;
+import com.centerm.quickcrypt.common_ui.CustomSnackBar;
 import com.centerm.quickcrypt.interfaces.RkiCallback;
+import com.centerm.quickcrypt.models.RkiResult;
+import com.centerm.quickcrypt.models.TempCertResult;
 import com.centerm.quickcrypt.models.TerminalCertResult;
 import com.centerm.quickcrypt.utils.AppUtils;
+import com.centerm.quickcrypt.utils.RkiPrefs;
 import com.pos.sdk.rki.RKIParamsKey;
 import com.pos.sdk.rki.RkiBnrDevice;
-import com.pos.sdk.sys.SystemDevice;
-
-import java.util.concurrent.Executors;
 
 public class RkiManager {
 
     private static final String TAG = "RkiManager";
 
-    private static RkiBnrDevice rkiDevice;
-    private static Context context;
+    private final Activity activity;
+    private final RkiDeviceService deviceService;
+    private final RkiApiService apiService;
 
-    public RkiManager(RkiBnrDevice rkiDevice,Context context) {
-        this.rkiDevice = rkiDevice;
-        this.context = context;
+    private final CustomLoader customLoader = new CustomLoader();
+
+    public RkiManager(Activity activity, RkiBnrDevice device) {
+        this.activity = activity;
+        this.deviceService = new RkiDeviceService(device);
+        this.apiService = new RkiApiService();
     }
 
+    public void startRkiProvisioning() {
 
-    public static void startRkiProvisioning() {
+        Log.i(TAG, "RKI Provisioning started");
+        customLoader.show(activity);
 
-        try {
-            Bundle result = generateTerminalCsr();
+        RkiResult csrResult = deviceService.generateCsr(true);
 
-            int status = result.getInt(RKIParamsKey.STATUS_CODE, -1);
+        if (csrResult.isAlreadyExists()) {
+            Log.w(TAG, "CSR already exists, regenerating");
+            csrResult = deviceService.generateCsr(false);
+        }
 
-            if (status == 0) {
+        if (!csrResult.isSuccess()) {
+            showError("CSR generation failed: " + csrResult.message);
+            return;
+        }
 
-                byte[] csrBytes = result.getByteArray(RKIParamsKey.TERMINAL_CSR);
+        Log.i(TAG, "CSR generated successfully");
 
-                if (csrBytes == null) {
-                    Log.i(TAG, "CSR byte array is null");
-                    return;
-                }
+        byte[] csr = csrResult.raw.getByteArray(RKIParamsKey.TERMINAL_CSR);
+        String customerCert = new AppUtils().loadAsset(activity.getApplicationContext());
 
-                try {
+        Log.i(TAG, "Requesting terminal certificate from server");
 
-                    String customerCert = new AppUtils().loadAsset(context, CUSTOMER_CERT);
-
-                    Executors.newSingleThreadExecutor().submit(() -> {
-                        new RkiApiClient().requestTerminalCert(customerCert, new String(csrBytes),
-                                new RkiCallback() {
-                                    @Override
-                                    public void onSuccess(String response) {
-                                        TerminalCertResult terminalCertResult = parseCertificateResult(response);
-
-                                        Log.i(TAG, "ResponseCode : " + terminalCertResult.responseCode);
-                                        Log.i(TAG, "ResponseText : " + terminalCertResult.responseText);
-                                        Log.i(TAG, "TerminalCrt  :\n" + terminalCertResult.terminalCertPem);
-
-                                        if (terminalCertResult.responseCode == 0) {
-                                            storeTerminalCertificate(terminalCertResult.terminalCertPem.getBytes());
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onError(String error) {
-                                        Log.i("RKI", error);
-                                    }
-                                }
-                        );
-                    });
-                } catch (Exception e) {
-                    Log.i("RKI", e.toString());
-                }
-
-            } else {
-                Log.i(TAG, "CSR failed: " + result.getString("statusMessage"));
+        apiService.requestTerminalCert(customerCert, new String(csr), new RkiCallback() {
+            @Override
+            public void onSuccess(String response) {
+                handleTerminalCert(response);
             }
 
-        } catch (Exception e) {
-            Log.i(TAG, e.toString());
-        }
+            @Override
+            public void onError(String error) {
+                showError(error);
+            }
+        });
     }
 
+    private void handleTerminalCert(String response) {
 
-    private static Bundle generateTerminalCsr() {
+        TerminalCertResult cert = AppUtils.parseTerminalCert(response);
 
-        Bundle params = new Bundle(2);
-        Bundle result = rkiDevice.generateTerminalKey(params);
-        int status = result.getInt(RKIParamsKey.STATUS_CODE, -1);
-
-        if (status == 1) {
-            Log.i(TAG, "CSR Already generated. Trying with isCheckExist = false");
-            params.putBoolean("isCheckExist", false);
-            result = rkiDevice.generateTerminalKey(params);
+        if (!cert.isSuccess() || cert.terminalCertPem == null || cert.terminalCertPem.isEmpty()) {
+            showError(cert.responseText);
+            return;
         }
 
-        return result;
+        Log.i(TAG, "Started storing terminal certificate on device");
+        RkiResult store = deviceService.storeTerminalCert(cert.terminalCertPem.getBytes());
+
+        if (!store.isSuccess() && !store.isAlreadyExists()) {
+            showError( store.message);
+            return;
+        }
+        Log.i(TAG, "Terminal certificate stored successfully");
+
+        generateTempCert();
     }
 
-    private static boolean storeTerminalCertificate(byte[] terminalCert) {
-        Bundle result = rkiDevice.storeTerminalCert(terminalCert, new Bundle(0));
-        int status = result.getInt(RKIParamsKey.STATUS_CODE, -1);
+    private void generateTempCert() {
 
-        if (status == 0 || status == 1) {
-            Log.i(TAG, "Terminal certificate " + (status == 0 ? "stored successfully" : "already exists"));
-            generateTempCertificate();
-            return true;
+        Log.i(TAG, "Generateting temporary certificate");
+
+        TempCertResult temp = new TempCertResult();
+        RkiResult result = deviceService.generateTempCert(temp);
+
+        if (!result.isSuccess()) {
+            showError(result.message);
+            return;
         }
 
-        Log.i(TAG, "Failed to store terminal cert: " + result.getString(RKIParamsKey.STATUS_MESSAGE));
+        Log.i(TAG, "Temporary certificate generated successfully");
 
-        return false;
-    }
+        String customerCert = new AppUtils().loadAsset(activity.getApplicationContext());
 
-    private static void generateTempCertificate() {
+        apiService.requestRkiData(customerCert, new String(temp.terminalCert), new String(temp.tempCert), new RkiCallback() {
+                    @Override
+                    public void onSuccess(String response) {
 
-        Bundle result = rkiDevice.generateTempCert(new Bundle());
-        int code = result.getInt(RKIParamsKey.STATUS_CODE, -1);
+                        TerminalCertResult rkiDataResponse = AppUtils.parseTerminalCert(response);
 
-        if (code == 0) {
-            byte[] tempCert = result.getByteArray(RKIParamsKey.TEMP_CERT);
-            byte[] customCert = result.getByteArray(RKIParamsKey.CUSTOM_CERT);
-            byte[] terminalCert = result.getByteArray(RKIParamsKey.TERMINAL_CERT);
+                        if (!rkiDataResponse.isSuccess()) {
+                            showError("RKI request failed");
+                            return;
+                        }
 
-            Log.i(TAG, "Generate Temp Certificate Success");
-            Log.i(TAG, "Temp Cert : " + new String(tempCert));
-            Log.i(TAG, "Custom Cert : " + new String(customCert));
-            Log.i(TAG, "Terminal Cert : " + new String(terminalCert));
+                        if (rkiDataResponse.rkiData == null || rkiDataResponse.rkiData.isEmpty()) {
+                            showError("RKI data is empty");
+                            return;
+                        }
 
-            if (terminalCert == null || terminalCert.length == 0) {
-                Log.e(TAG, "Terminal Cert is empty");
-            } else {
-                Executors.newSingleThreadExecutor().submit(() -> {
+                        Log.i(TAG, "RKI data received");
 
-                    String customerCert = new AppUtils().loadAsset(context, CUSTOMER_CERT);
+                        int keySet  = 0;
+                        int keyIndex = RkiPrefs.getKeyIndex();
 
+                        int status = deviceService.injectKeys(keySet, keyIndex, rkiDataResponse.rkiData.getBytes());
 
-                    new RkiApiClient().requestRkiDataFromServer(customerCert, new String(terminalCert), new String(tempCert),
-                            new RkiCallback() {
-                                @Override
-                                public void onSuccess(String response) {
-                                    Log.i(TAG, response);
+                        if (status == 0) {
+                            showSuccess("Keys successfully injected at index: " + keyIndex);
+                        } else {
+                            showError("RKI key injection failed with status: " + status);
+                        }
 
-                                }
-
-                                @Override
-                                public void onError(String error) {
-                                    Log.i("RKI", error);
-                                }
-                            }
-                    );
+                    }
+                    @Override
+                    public void onError(String error) {
+                        showError(error);
+                    }
                 });
-            }
+    }
+
+    public void checkValidations() {
+
+        String serverUrl = RkiPrefs.getServerUrl();
+        String apiKey = RkiPrefs.getApiKey();
+        String apiToken = RkiPrefs.getApiToken();
+        int keyIndex = RkiPrefs.getKeyIndex();
+
+        if (serverUrl.isEmpty()) {
+            showInfo("Server URL is empty");
+        } else if (apiKey.isEmpty()) {
+            showInfo("Api Key is empty");
+        } else if (apiToken.isEmpty()) {
+            showInfo("Api Token is empty");
+        } else if (keyIndex == -1) {
+            showInfo("Api Token is empty");
         } else {
-            Log.e(TAG, result.getString(RKIParamsKey.STATUS_MESSAGE, ""));
+            startRkiProvisioning();
         }
+
     }
 
-
-    private static TerminalCertResult parseCertificateResult(String resp) {
-        TerminalCertResult terminalCertResult = new TerminalCertResult();
-        String[] kv = resp.split("&");
-        for (String s : kv) {
-            String[] tmp = s.split("=", 2);
-            switch (tmp[0]) {
-                case "ResponseCode":
-                    terminalCertResult.responseCode = Integer.parseInt(tmp[1]);
-                    break;
-                case "ResponseText":
-                    terminalCertResult.responseText = tmp[1];
-                    break;
-                case "TerminalCrt":
-                    terminalCertResult.terminalCertPem = tmp[1];
-                    break;
-                case "RKIData":
-                    terminalCertResult.rkiData = tmp[1];
-            }
-        }
-        return terminalCertResult;
+    private void showSuccess(String message) {
+        Log.i(TAG, message);
+        customLoader.dismiss();
+        CustomSnackBar.success(activity, message);
     }
 
-
-    public int injectKeys(int dukptAlgo, int keyIndex, byte[] rkiData) {
-
-        int result = rkiDevice.performKeyInject(
-                dukptAlgo,
-                keyIndex,
-                rkiData,
-                new Bundle()
-        );
-
-        Log.i(TAG, "injectKeys result=" + result);
-        return result;
+    private void showError(String message) {
+        Log.i(TAG, message);
+        customLoader.dismiss();
+        CustomSnackBar.error(activity, message);
+    }
+    private void showInfo(String message) {
+        Log.i(TAG, message);
+        customLoader.dismiss();
+        CustomSnackBar.info(activity, message);
     }
 }
