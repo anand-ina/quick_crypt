@@ -3,29 +3,44 @@ package com.centerm.quickcrypt.activities;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Patterns;
+import android.widget.EditText;
 
 import com.centerm.quickcrypt.R;
 import com.centerm.quickcrypt.common_ui.CustomSnackBar;
 import com.centerm.quickcrypt.utils.RkiPrefs;
-import com.google.android.material.textfield.TextInputEditText;
 
 public class SettingsActivity extends BaseActivity {
 
-    private TextInputEditText etServerUrlEditText, etApiKeyEditText, etApiTokenEditText, etKeyIndexEditText;
+    private EditText etServerUrlEditText, etApiKeyEditText, etApiTokenEditText, etKeyIndexEditText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setupEdgeToEdge(R.layout.activity_settings, R.id.settings);
 
-        etServerUrlEditText = findViewById(R.id.etServerUrl);
-        etApiKeyEditText = findViewById(R.id.etApiKey);
-        etApiTokenEditText = findViewById(R.id.etApiToken);
-        etKeyIndexEditText = findViewById(R.id.etKeyIndex);
+        etServerUrlEditText = findViewById(R.id.edittext_server_url);
+        etApiKeyEditText = findViewById(R.id.edittext_api_key);
+        etApiTokenEditText = findViewById(R.id.edittext_api_token);
+        etKeyIndexEditText = findViewById(R.id.editext_key_index);
 
         findViewById(R.id.back_arrow_icon).setOnClickListener(v -> finish());
-        findViewById(R.id.button_reset).setOnClickListener(v -> finish());
+        findViewById(R.id.button_reset).setOnClickListener(v -> onRestClick());
         findViewById(R.id.button_save).setOnClickListener(v -> onSaveClick());
+
+        initializeValues();
+    }
+
+    private void initializeValues() {
+        etServerUrlEditText.setText(RkiPrefs.getServerUrl());
+        etApiKeyEditText.setText(RkiPrefs.getApiKey());
+        etApiTokenEditText.setText(RkiPrefs.getApiToken());
+        etKeyIndexEditText.setText(String.valueOf(RkiPrefs.getKeyIndex()));
+    }
+
+    private void onRestClick() {
+        CustomSnackBar.success(this, getString(R.string.text_settings_reset_successfully));
+        RkiPrefs.save( "", "", "", 0);
+        findViewById(android.R.id.content).postDelayed(this::finish, 2000);
     }
 
     private void onSaveClick() {
@@ -74,7 +89,7 @@ public class SettingsActivity extends BaseActivity {
         findViewById(android.R.id.content).postDelayed(this::finish, 2000);
     }
 
-    private String getText(TextInputEditText editText) {
+    private String getText(EditText editText) {
         return editText.getText() == null ? "" : editText.getText().toString().trim();
     }
 }

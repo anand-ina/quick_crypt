@@ -1,7 +1,6 @@
-package com.centerm.core;
+package com.centerm.quickcrypt.core;
 
 import android.app.Activity;
-import android.content.Context;
 import android.util.Log;
 
 import com.centerm.quickcrypt.rki.RkiManager;

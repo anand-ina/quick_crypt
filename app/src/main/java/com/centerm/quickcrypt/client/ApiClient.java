@@ -2,7 +2,7 @@ package com.centerm.quickcrypt.client;
 
 import android.util.Log;
 
-import com.centerm.core.DeviceHelper;
+import com.centerm.quickcrypt.core.DeviceHelper;
 import com.centerm.quickcrypt.interfaces.RkiCallback;
 import com.centerm.quickcrypt.utils.RkiPrefs;
 

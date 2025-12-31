@@ -46,6 +46,6 @@ public final class RkiPrefs {
     }
 
     public static int getKeyIndex() {
-        return prefs.getInt(KEY_INDEX, -1);
+        return prefs.getInt(KEY_INDEX, 0);
     }
 }
